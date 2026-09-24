@@ -1,0 +1,60 @@
+server:
+  # Public DNS name. Set this before the first install; it becomes part of the
+  # server identity advertised to clients.
+  address: smp.example.com
+  # Empty allows anybody to create queues. Prefer existingSecret in production.
+  password: ""
+  existingSecret: ""
+  existingSecretKey: PASS
+
+image:
+  repository: simplexchat/smp-server
+  tag: v7.0.1
+  pullPolicy: IfNotPresent
+
+service:
+  # SMP is raw TCP, so an ordinary HTTP Ingress is not suitable.
+  type: LoadBalancer
+  port: 5223
+  annotations: {}
+  externalTrafficPolicy: Cluster
+  loadBalancerIP: ""
+
+persistence:
+  config:
+    # Server identity, certificates and configuration.
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  state:
+    # Queue/connection records and undelivered messages. Disabling this makes
+    # existing queues invalid after every pod replacement.
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "2"
+    memory: 1Gi
+
+podSecurityContext:
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+terminationGracePeriodSeconds: 300
+
+nameOverride: ""
+fullnameOverride: ""
+

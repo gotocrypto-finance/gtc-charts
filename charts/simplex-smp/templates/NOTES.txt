@@ -1,0 +1,8 @@
+SimpleX SMP is exposed as raw TCP on port {{ .Values.service.port }}.
+
+External address:
+  kubectl -n {{ .Release.Namespace }} get service {{ include "simplex-smp.fullname" . }}
+
+Server address for the SimpleX client:
+  kubectl -n {{ .Release.Namespace }} logs statefulset/{{ include "simplex-smp.fullname" . }} | grep 'Server address:'
+

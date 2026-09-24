@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "simplex-smp.fullname" . }}
+  labels:
+    {{- include "simplex-smp.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "simplex-smp.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "simplex-smp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "simplex-smp.selectorLabels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: smp-server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ADDR
+              value: {{ required "server.address must be the relay's public DNS name" .Values.server.address | quote }}
+            - name: WEB_MANUAL
+              value: "1"
+            - name: PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "simplex-smp.secretName" . }}
+                  key: {{ .Values.server.existingSecretKey }}
+          ports:
+            - name: smp
+              containerPort: 5223
+              protocol: TCP
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -ec
+                  - kill -INT 1; while kill -0 1 2>/dev/null; do sleep 1; done
+          startupProbe:
+            tcpSocket:
+              port: smp
+            periodSeconds: 2
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: smp
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: smp
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/opt/simplex
+            - name: state
+              mountPath: /var/opt/simplex
+      {{- if or (not .Values.persistence.config.enabled) (not .Values.persistence.state.enabled) }}
+      volumes:
+        {{- if not .Values.persistence.config.enabled }}
+        - name: config
+          emptyDir: {}
+        {{- end }}
+        {{- if not .Values.persistence.state.enabled }}
+        - name: state
+          emptyDir: {}
+        {{- end }}
+      {{- end }}
+  {{- if or .Values.persistence.config.enabled .Values.persistence.state.enabled }}
+  volumeClaimTemplates:
+    {{- if .Values.persistence.config.enabled }}
+    - metadata:
+        name: config
+      spec:
+        accessModes:
+          - {{ .Values.persistence.config.accessMode }}
+        {{- with .Values.persistence.config.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.config.size }}
+    {{- end }}
+    {{- if .Values.persistence.state.enabled }}
+    - metadata:
+        name: state
+      spec:
+        accessModes:
+          - {{ .Values.persistence.state.accessMode }}
+        {{- with .Values.persistence.state.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.state.size }}
+    {{- end }}
+  {{- end }}
+
