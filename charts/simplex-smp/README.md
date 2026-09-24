@@ -8,9 +8,11 @@ Expose inbound TCP `5223` and point `server.address` to the load balancer with a
 
 ## Storage
 
-Both PVCs are enabled by default. The `config` claim contains the permanent server identity and certificates. The `state` claim contains queue/connection records and undelivered messages. Losing the state claim invalidates existing queues; it does not only discard pending messages.
+One `10Gi` PVC is enabled by default. It contains separate `config/` and `state/` directories mounted with `subPath`. Configuration contains the permanent server identity and certificates; state contains queue/connection records and undelivered messages. Losing the volume changes the server identity and invalidates all existing queues.
 
-For a disposable test relay, set both `persistence.config.enabled` and `persistence.state.enabled` to `false`.
+For a disposable test relay, set `persistence.enabled=false`.
+
+Upgrading from chart `0.1.x` requires a fresh StatefulSet or a manual data migration because Kubernetes does not allow changing existing `volumeClaimTemplates` from two claims to one.
 
 ## Installation
 
@@ -29,4 +31,3 @@ server:
   existingSecret: simplex-smp-password
   existingSecretKey: PASS
 ```
-

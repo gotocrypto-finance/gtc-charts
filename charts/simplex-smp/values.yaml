@@ -21,19 +21,17 @@ service:
   loadBalancerIP: ""
 
 persistence:
-  config:
-    # Server identity, certificates and configuration.
-    enabled: true
-    size: 1Gi
-    storageClass: ""
-    accessMode: ReadWriteOnce
-  state:
-    # Queue/connection records and undelivered messages. Disabling this makes
-    # existing queues invalid after every pod replacement.
-    enabled: true
-    size: 10Gi
-    storageClass: ""
-    accessMode: ReadWriteOnce
+  # One volume contains separate config/ and state/ directories. Disabling it
+  # makes the server identity and all queues ephemeral.
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+  accessMode: ReadWriteOnce
+
+initImage:
+  repository: busybox
+  tag: "1.37.0"
+  pullPolicy: IfNotPresent
 
 resources:
   requests:
@@ -57,4 +55,3 @@ terminationGracePeriodSeconds: 300
 
 nameOverride: ""
 fullnameOverride: ""
-

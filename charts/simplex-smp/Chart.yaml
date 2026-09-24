@@ -2,11 +2,10 @@ apiVersion: v2
 name: simplex-smp
 description: A persistent SimpleX Messaging Protocol relay
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "7.0.1"
 home: https://simplex.chat
 sources:
   - https://github.com/simplex-chat/simplexmq
 maintainers:
   - name: GoToCrypto Finance
-

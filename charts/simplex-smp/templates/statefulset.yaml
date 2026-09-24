@@ -18,6 +18,22 @@ spec:
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: prepare-storage
+          image: "{{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}"
+          imagePullPolicy: {{ .Values.initImage.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+            - mkdir -p /data/config /data/state
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: smp-server
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -66,48 +82,28 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           volumeMounts:
-            - name: config
+            - name: data
               mountPath: /etc/opt/simplex
-            - name: state
+              subPath: config
+            - name: data
               mountPath: /var/opt/simplex
-      {{- if or (not .Values.persistence.config.enabled) (not .Values.persistence.state.enabled) }}
+              subPath: state
+      {{- if not .Values.persistence.enabled }}
       volumes:
-        {{- if not .Values.persistence.config.enabled }}
-        - name: config
+        - name: data
           emptyDir: {}
-        {{- end }}
-        {{- if not .Values.persistence.state.enabled }}
-        - name: state
-          emptyDir: {}
-        {{- end }}
       {{- end }}
-  {{- if or .Values.persistence.config.enabled .Values.persistence.state.enabled }}
+  {{- if .Values.persistence.enabled }}
   volumeClaimTemplates:
-    {{- if .Values.persistence.config.enabled }}
     - metadata:
-        name: config
+        name: data
       spec:
         accessModes:
-          - {{ .Values.persistence.config.accessMode }}
-        {{- with .Values.persistence.config.storageClass }}
+          - {{ .Values.persistence.accessMode }}
+        {{- with .Values.persistence.storageClass }}
         storageClassName: {{ . | quote }}
         {{- end }}
         resources:
           requests:
-            storage: {{ .Values.persistence.config.size }}
-    {{- end }}
-    {{- if .Values.persistence.state.enabled }}
-    - metadata:
-        name: state
-      spec:
-        accessModes:
-          - {{ .Values.persistence.state.accessMode }}
-        {{- with .Values.persistence.state.storageClass }}
-        storageClassName: {{ . | quote }}
-        {{- end }}
-        resources:
-          requests:
-            storage: {{ .Values.persistence.state.size }}
-    {{- end }}
+            storage: {{ .Values.persistence.size }}
   {{- end }}
-
