@@ -3,6 +3,21 @@ entries:
   simplex-smp:
   - apiVersion: v2
     appVersion: 7.0.1
+    created: "2026-09-24T16:21:45.055644157Z"
+    description: A persistent SimpleX Messaging Protocol relay
+    digest: b767659830b058ff08eb9d79d3d0e8b538918203789f7744d122456d53798a12
+    home: https://simplex.chat
+    maintainers:
+    - name: GoToCrypto Finance
+    name: simplex-smp
+    sources:
+    - https://github.com/simplex-chat/simplexmq
+    type: application
+    urls:
+    - https://github.com/gotocrypto-finance/gtc-charts/releases/download/simplex-smp-0.2.0/simplex-smp-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
+    appVersion: 7.0.1
     created: "2026-09-24T15:03:12.633647321Z"
     description: A persistent SimpleX Messaging Protocol relay
     digest: a20fc90885bba50782c76bfb467820ac85817254963476d82f6d43e3bb8a8a0d
@@ -16,4 +31,4 @@ entries:
     urls:
     - https://github.com/gotocrypto-finance/gtc-charts/releases/download/simplex-smp-0.1.0/simplex-smp-0.1.0.tgz
     version: 0.1.0
-generated: "2026-09-24T15:03:12.633652461Z"
+generated: "2026-09-24T16:21:45.055658198Z"
