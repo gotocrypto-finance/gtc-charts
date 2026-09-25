@@ -1,5 +1,16 @@
 apiVersion: v1
 entries:
+  simplex:
+  - apiVersion: v2
+    appVersion: latest
+    created: "2026-09-25T06:21:27.405778223Z"
+    description: Self-hosted SimpleX SMP, XFTP and TURN services
+    digest: 2f54b3e2124eb796acc1b47f5a9124f6033e653aba7e9f5828138395f24995a4
+    name: simplex
+    type: application
+    urls:
+    - https://github.com/gotocrypto-finance/gtc-charts/releases/download/simplex-1.0.0/simplex-1.0.0.tgz
+    version: 1.0.0
   simplex-smp:
   - apiVersion: v2
     appVersion: 7.0.1
@@ -31,4 +42,4 @@ entries:
     urls:
     - https://github.com/gotocrypto-finance/gtc-charts/releases/download/simplex-smp-0.1.0/simplex-smp-0.1.0.tgz
     version: 0.1.0
-generated: "2026-09-24T16:21:45.055658198Z"
+generated: "2026-09-25T06:21:27.405788132Z"
