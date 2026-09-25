@@ -2,5 +2,5 @@ apiVersion: v2
 name: simplex
 description: Self-hosted SimpleX SMP, XFTP and TURN services
 type: application
-version: 0.1.0
+version: 1.0.0
 appVersion: "latest"
