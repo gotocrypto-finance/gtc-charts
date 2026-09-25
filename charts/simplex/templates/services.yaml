@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "simplex.fullname" . }}-simplex-smp
+  labels:
+    {{- include "simplex.labels" . | nindent 4 }}
+    app.kubernetes.io/component: smp
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: {{ .Values.smp.service.externalTrafficPolicy }}
+  {{- with .Values.publicIP }}
+  externalIPs:
+    - {{ . | quote }}
+  {{- end }}
+  selector:
+    {{- include "simplex.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: smp
+      port: {{ .Values.smp.service.port }}
+      targetPort: smp
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "simplex.fullname" . }}-xftp
+  labels:
+    {{- include "simplex.labels" . | nindent 4 }}
+    app.kubernetes.io/component: xftp
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: {{ .Values.xftp.service.externalTrafficPolicy }}
+  {{- with .Values.publicIP }}
+  externalIPs:
+    - {{ . | quote }}
+  {{- end }}
+  selector:
+    {{- include "simplex.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: xftp
+      port: {{ .Values.xftp.service.port }}
+      targetPort: xftp
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "simplex.fullname" . }}-turn
+  labels:
+    {{- include "simplex.labels" . | nindent 4 }}
+    app.kubernetes.io/component: turn
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: {{ .Values.turn.service.externalTrafficPolicy }}
+  {{- with .Values.publicIP }}
+  externalIPs:
+    - {{ . | quote }}
+  {{- end }}
+  selector:
+    {{- include "simplex.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: turn-tcp
+      port: {{ .Values.turn.listeningPort }}
+      targetPort: turn-tcp
+      protocol: TCP
+    - name: turn-udp
+      port: {{ .Values.turn.listeningPort }}
+      targetPort: turn-udp
+      protocol: UDP
+    {{- range $port := untilStep (int .Values.turn.relay.minPort) (add1 (int .Values.turn.relay.maxPort) | int) 1 }}
+    - name: relay-{{ $port }}
+      port: {{ $port }}
+      targetPort: {{ $port }}
+      protocol: UDP
+    {{- end }}

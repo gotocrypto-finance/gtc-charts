@@ -1,0 +1,216 @@
+{{- if ne (int .Values.replicaCount) 1 }}
+{{- fail "replicaCount must be 1: SMP/XFTP share one ReadWriteOnce PVC and TURN relay ports cannot be load-balanced across replicas" }}
+{{- end }}
+{{- if gt (int .Values.turn.relay.minPort) (int .Values.turn.relay.maxPort) }}
+{{- fail "turn.relay.minPort must be less than or equal to turn.relay.maxPort" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "simplex.fullname" . }}-simplex-smp
+  labels:
+    {{- include "simplex.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "simplex.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/credentials: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "simplex.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-directories
+          image: "{{ .Values.initDirectories.image.repository }}:{{ .Values.initDirectories.image.tag }}"
+          imagePullPolicy: {{ .Values.initDirectories.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.initDirectories.securityContext | nindent 12 }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              mkdir -p \
+                /data/{{ .Values.persistence.subPaths.smpConfig }} \
+                /data/{{ .Values.persistence.subPaths.smpState }} \
+                /data/{{ .Values.persistence.subPaths.xftpConfig }} \
+                /data/{{ .Values.persistence.subPaths.xftpState }} \
+                /data/{{ .Values.persistence.subPaths.xftpFiles }} \
+                /data/{{ .Values.persistence.subPaths.turn }}
+              chmod g+rwx \
+                /data \
+                /data/{{ .Values.persistence.subPaths.smpConfig }} \
+                /data/{{ .Values.persistence.subPaths.smpState }} \
+                /data/{{ .Values.persistence.subPaths.xftpConfig }} \
+                /data/{{ .Values.persistence.subPaths.xftpState }} \
+                /data/{{ .Values.persistence.subPaths.xftpFiles }} \
+                /data/{{ .Values.persistence.subPaths.turn }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      containers:
+        - name: smp
+          image: "{{ .Values.smp.image.repository }}:{{ .Values.smp.image.tag }}"
+          imagePullPolicy: {{ .Values.smp.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: ADDR
+              value: {{ .Values.hostname | quote }}
+            - name: PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "simplex.secretName" . }}
+                  key: smp-password
+            - name: WEB_MANUAL
+              value: {{ .Values.smp.env.webManual | quote }}
+          ports:
+            - name: smp
+              containerPort: 5223
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: smp
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "kill -INT 1; sleep 5"]
+          resources:
+            {{- toYaml .Values.smp.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /etc/opt/simplex
+              subPath: {{ .Values.persistence.subPaths.smpConfig }}
+            - name: data
+              mountPath: /var/opt/simplex
+              subPath: {{ .Values.persistence.subPaths.smpState }}
+        - name: xftp
+          image: "{{ .Values.xftp.image.repository }}:{{ .Values.xftp.image.tag }}"
+          imagePullPolicy: {{ .Values.xftp.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.xftp.securityContext | nindent 12 }}
+          env:
+            - name: ADDR
+              value: {{ .Values.hostname | quote }}
+            - name: QUOTA
+              value: {{ .Values.xftp.quota | quote }}
+            - name: PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "simplex.secretName" . }}
+                  key: xftp-password
+          ports:
+            - name: xftp
+              containerPort: 443
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: xftp
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.xftp.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /etc/opt/simplex-xftp
+              subPath: {{ .Values.persistence.subPaths.xftpConfig }}
+            - name: data
+              mountPath: /var/opt/simplex-xftp
+              subPath: {{ .Values.persistence.subPaths.xftpState }}
+            - name: data
+              mountPath: /srv/xftp
+              subPath: {{ .Values.persistence.subPaths.xftpFiles }}
+        - name: turn
+          image: "{{ .Values.turn.image.repository }}:{{ .Values.turn.image.tag }}"
+          imagePullPolicy: {{ .Values.turn.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: PUBLIC_IP
+              value: {{ required "publicIP must be set for coturn" .Values.publicIP | quote }}
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: TURN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "simplex.secretName" . }}
+                  key: turn-username
+            - name: TURN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "simplex.secretName" . }}
+                  key: turn-password
+          args:
+            - --no-cli
+            - --fingerprint
+            - --lt-cred-mech
+            - --realm={{ .Values.turn.realm }}
+            - --listening-port={{ .Values.turn.listeningPort }}
+            - --min-port={{ .Values.turn.relay.minPort }}
+            - --max-port={{ .Values.turn.relay.maxPort }}
+            - --external-ip=$(PUBLIC_IP)/$(POD_IP)
+            - --user=$(TURN_USERNAME):$(TURN_PASSWORD)
+            - --no-multicast-peers
+            - --no-loopback-peers
+            - --no-tls
+            - --no-dtls
+            - --log-file=stdout
+          ports:
+            - name: turn-tcp
+              containerPort: {{ .Values.turn.listeningPort }}
+              protocol: TCP
+            - name: turn-udp
+              containerPort: {{ .Values.turn.listeningPort }}
+              protocol: UDP
+          readinessProbe:
+            tcpSocket:
+              port: turn-tcp
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.turn.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/coturn
+              subPath: {{ .Values.persistence.subPaths.turn }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "simplex.pvcName" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

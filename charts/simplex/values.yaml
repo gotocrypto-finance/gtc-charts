@@ -1,0 +1,113 @@
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+imagePullSecrets: []
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# The public IP is placed in Service externalIPs and advertised by coturn.
+# scripts/update-simplex-public-ip.sh updates both locations when it changes.
+publicIP: "65.108.49.23"
+
+hostname: s.gtc.finance
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 120Gi
+  annotations: {}
+  subPaths:
+    smpConfig: smp/config
+    smpState: smp/state
+    xftpConfig: xftp/config
+    xftpState: xftp/state
+    xftpFiles: xftp/files
+    turn: turn
+
+initDirectories:
+  image:
+    repository: busybox
+    tag: "1.37.0"
+    pullPolicy: IfNotPresent
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+
+credentials:
+  # Set existingSecret to a Secret containing smp-password, xftp-password,
+  # turn-username and turn-password. Otherwise the values below are used.
+  existingSecret: ""
+  smpPassword: ""
+  xftpPassword: ""
+  turnUsername: simplex
+  turnPassword: change-me
+
+smp:
+  image:
+    repository: simplexchat/smp-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  env:
+    webManual: "1"
+  service:
+    port: 5223
+    externalTrafficPolicy: Cluster
+  resources: {}
+
+xftp:
+  image:
+    repository: simplexchat/xftp-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - NET_BIND_SERVICE
+  quota: 100gb
+  service:
+    # XFTP listens on 443 inside the container. Using 5225 externally lets all
+    # SimpleX services share one hostname/IP without taking the node's 443.
+    port: 5225
+    externalTrafficPolicy: Cluster
+  resources: {}
+
+turn:
+  image:
+    repository: coturn/coturn
+    tag: latest
+    pullPolicy: IfNotPresent
+  realm: s.gtc.finance
+  listeningPort: 3478
+  relay:
+    # Every port in this inclusive range is rendered into the Service. Keep the
+    # range modest, but enlarge it if concurrent calls exhaust allocations.
+    minPort: 49160
+    maxPort: 49210
+  service:
+    externalTrafficPolicy: Cluster
+  resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+terminationGracePeriodSeconds: 60

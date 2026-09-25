@@ -1,0 +1,13 @@
+SimpleX services are exposed on {{ .Values.hostname }} ({{ .Values.publicIP }}):
+
+  SMP:  {{ .Values.hostname }}:{{ .Values.smp.service.port }}/tcp
+  XFTP: {{ .Values.hostname }}:{{ .Values.xftp.service.port }}/tcp
+  TURN: {{ .Values.hostname }}:{{ .Values.turn.listeningPort }}/tcp+udp
+  TURN relay UDP range: {{ .Values.turn.relay.minPort }}-{{ .Values.turn.relay.maxPort }}
+
+Because XFTP uses a non-default external port, append :{{ .Values.xftp.service.port }}
+to the hostname in the xftp:// address printed by the XFTP container.
+
+Read the generated addresses:
+  kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "simplex.fullname" . }}-simplex-smp -c smp
+  kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "simplex.fullname" . }}-simplex-smp -c xftp
